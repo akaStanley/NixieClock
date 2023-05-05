@@ -1,0 +1,6 @@
+(fp_lib_table
+  (lib (name MAX1771ESA+)(type Legacy)(uri "${KIPRJMOD}/Part Libraries/MAX1771ESA+.mod")(options "")(descr ""))
+  (lib (name mynixies)(type Legacy)(uri "${KIPRJMOD}/Part Libraries/mynixies.mod")(options "")(descr ""))
+  (lib (name nixiemisc)(type Legacy)(uri "${KIPRJMOD}/Part Libraries/nixiemisc.mod")(options "")(descr ""))
+  (lib (name nixies-us)(type Legacy)(uri "${KIPRJMOD}/Part Libraries/nixies-us.mod")(options "")(descr ""))
+)

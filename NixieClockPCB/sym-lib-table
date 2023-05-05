@@ -1,0 +1,8 @@
+(sym_lib_table
+  (lib (name ArduProMiniTKB)(type Legacy)(uri ${KIPRJMOD}/ArduProMiniTKB.lib)(options "")(descr ""))
+  (lib (name MAX1771ESA+)(type Legacy)(uri "${KIPRJMOD}/Part Libraries/MAX1771ESA+.lib")(options "")(descr ""))
+  (lib (name mynixies)(type Legacy)(uri "${KIPRJMOD}/Part Libraries/mynixies.lib")(options "")(descr ""))
+  (lib (name nixiemisc)(type Legacy)(uri "${KIPRJMOD}/Part Libraries/nixiemisc.lib")(options "")(descr ""))
+  (lib (name nixies-us)(type Legacy)(uri "${KIPRJMOD}/Part Libraries/nixies-us.lib")(options "")(descr ""))
+  (lib (name NixieClock-rescue)(type Legacy)(uri ${KIPRJMOD}/NixieClock-rescue.lib)(options "")(descr ""))
+)
