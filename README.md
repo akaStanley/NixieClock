@@ -5,7 +5,7 @@ Read the "Notes on Nixie Tube Clock.rtf" for more details on the actual design. 
 All the Code, PCB, and 3D model files are included here if you want to make your own. BOM cost will run you at least 250$ though, so maybe think twice...
 
 ### The Finnished Clock
-![Clock Final](/Images/Clock_final.JPG)
+![Clock Final](/Images/Clock_final.jpg)
 
 ### The Clock Powered Off
 ![Clock 3/4 view powered off](/Images/Clock-Front.JPG)
@@ -14,7 +14,7 @@ All the Code, PCB, and 3D model files are included here if you want to make your
 ![Board Top side](/Images/BoardTop.PNG)
 
 ### PCB Bottom side (with fix)
-![Board Bottom side with added 5v LDO](/Images/pcb_bottom.jpg)
+![Board Bottom side with added 5v LDO](/Images/pcb_bottom.JPG)
 
 ### Circuit Overview
 ![3/4 view of the GPS module, MCU and power supply](/Images/Circuit2.JPG)
@@ -27,18 +27,18 @@ From left to right:
 ## 3D Printing
 I bought an Ender 3 V2 and modeled a base and some trim parts for this clock.  
 
-### Angled Base
-![Perfect viewing angle](/Images/base1.jpg)
-
 ### "Naked" Tube legs
 ![Ugly](/Images/Legs1.JPG)
 
+### Angled Base
+![Perfect viewing angle](/Images/base1.jpg)
+
 ### 3D printed ring to cover them
-![Elegant](/Images/Legs2.jpg)
+![Elegant](/Images/legs2.jpg)
 
 ## Tubes!
 Turns out you can get unlucky and your vintage tubes will just _die_ one day...They aren't getting any cheaper to replace.  
 In 2020, the larger IN-18 tubes were 50$ each, and the smaller IN-8-2 were a measly 18$. Shipped from a random wearhouse in Belarus.  
 ![IN-8-2 on the left, IN-18 on the right](/Images/Tubes.jpg)  
 
-![Tube testing, hoping to bring one back from the dead](/Images/TubeTesting.jpg)  
+![Tube testing, hoping to bring one back from the dead](/Images/TubeTesting.JPG)  
