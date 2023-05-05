@@ -1,7 +1,9 @@
 # Nixie Tube Clock
 From scratch design of a Nixie Tube Clock, with a twist. This clock sets its time using a GPS reciever, so it has the correct time anywhere around the world--and you don't have set it.
 
-Read the "Notes on Nixie Tube Clock.rtf" for more details on the actual design. Here are some images of the design:
+Read the "Notes on Nixie Tube Clock.rtf" for more details on the actual design. Here are some images of the design.
+All the Code, PCB, and 3D model files are included here if you want to make your own. BOM cost will run you at least 250$ though, so maybe think twice...
+
 ### The Finnished Clock
 ![Clock Final](/Images/Clock_final.JPG)
 
