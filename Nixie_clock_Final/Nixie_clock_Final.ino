@@ -1,4 +1,4 @@
-// May 3, 2025
+// May 5, 2025
 // Spencer Kulbacki
 // Nixie tube clock with GPS
 
@@ -95,8 +95,8 @@ void loop()
   const unsigned long gpsInterval = 500;
   if (millis() - lastGPSTask >= gpsInterval) {
     lastGPSTask = millis();
-    if (gps.time.age() >= 10 && gps.date.isValid() && gps.time.isValid() && gps.date.year() > 2000) {
-
+    
+    if (gps.date.isValid() && gps.time.isValid() && gps.date.year() > 2000) {
       setTimeGPS(gps.date, gps.time); //sets values when GPS recieved
 
       if (gps.location.isValid()) {
@@ -146,8 +146,8 @@ void loop()
   }
 
 
-  //tube cleanging sequence, runs every 12 hours
-  if (currentHr == 12 && currentMin == 02 && TubeCleaning == true) {
+  //tube cleanging sequence runs twice a day, at 12:02
+  if (currentHr == 12 && currentMin == 2 && TubeCleaning == true) {
     for (int i = 0; i <= 99; i += 11) { // Increment up by 11
       //Serial.print("Tube Cleaning: ");
       //Serial.println(i);
@@ -155,7 +155,7 @@ void loop()
       timeToBitHour(i);
       shiftOutData(dataMin, clkPin, latchMin, minuteData);
       shiftOutData(dataHr, clkPin, latchHr, hourData);
-      delay(500);
+      delay(750);
     }
     for (int i = 88; i >= 0; i -= 11) { // Decrement down by 11
       //Serial.print("Tube Cleaning: ");
@@ -164,9 +164,13 @@ void loop()
       timeToBitHour(i);
       shiftOutData(dataMin, clkPin, latchMin, minuteData);
       shiftOutData(dataHr, clkPin, latchHr, hourData);
-      delay(500);
+      delay(750);
     }
     TubeCleaning = false; // End the tube cleaning after loop completes
+    timeToBitMinute(2); //set the clock back to the correct time
+    timeToBitHour(12);
+    shiftOutData(dataMin, clkPin, latchMin, minuteData); //send to tubes via shift register
+    shiftOutData(dataHr, clkPin, latchHr, hourData);
   }
 
   if (currentHr == 12 && currentMin == 10) {
