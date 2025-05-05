@@ -1,4 +1,4 @@
-// February 1st 2020
+// May 3, 2025
 // Spencer Kulbacki
 // Nixie tube clock with GPS
 
@@ -8,13 +8,19 @@
 //white TX (output from chip)
 //black GND
 
-//https://github.com/mikalhart/TinyGPSPlus/releases
+//Exta Libraries Used:
+//https://github.com/mikalhart/TinyGPSPlus
 //https://github.com/JChristensen/Timezone
+// Versions at compilation & last edit
+// Arduino IDE ver 1.8.16
+// TimeZone ver 1.2.4
+// TinyGPSPlus ver 1.0.3
 
 // Include Libraries
 #include "SoftwareSerial.h"
-#include "TinyGPS++.h"
+#include "TinyGPSPlus.h"
 #include "Timezone.h"
+#include "TimeLib.h"  // Arduino library to work with time/date functions
 
 static const int RXPin = 2, TXPin = 3;
 //white to pin 3
@@ -23,12 +29,12 @@ static const int RXPin = 2, TXPin = 3;
 TinyGPSPlus gps;
 SoftwareSerial ss(RXPin, TXPin);
 
-TimeChangeRule *tcr; // pointer to the time change rule, use to get TZ abbrev
+bool TubeCleaning = true;
 
-bool ClockSetup = true; //used for running initalization loop the first time plugged in
-bool TimeCycle = true;
-
-int Tzone = 0; //used for time offset
+int TzoneOffset = -8; //used for time offset
+time_t prevDisplay = 0; //when the time was last set
+int stdOffsetMinutes = 0; //Standard Time offset
+int dstOffsetMinutes = 0; //Daylight Time offset
 
 const int clkPin = 11;   // OC2A output pin is 11 do not change
 const int dataMin = 5;
@@ -37,183 +43,198 @@ const int dataHr = 6;
 const int latchMin = 9;
 const int latchHr = 10;
 
-uint8_t prevMin = 00;
-uint8_t currentMin = 00;
-uint8_t currentHr = 00;
+uint8_t prevMin = -1;
+uint8_t currentMin = 0; //Shown time minute stored here
+uint8_t currentHr = 0; //shown time hour stored here
 
-uint8_t ActiveSeconds = 0;
-
-long hourData = 0b00000000000000000000000000000000;
-long minuteData = 0b00000000000000000000000000000000;
+long hourData = 0b00000000000010000000001000000000; //default to show 11
+long minuteData = 0b10000000000010000000000000000000; //default to show 11
 
 void setup()
 {
   pinMode(7, OUTPUT);
+  digitalWrite(7, HIGH); //pull HIGH minute blank pin so it never blank
   pinMode(8, OUTPUT);
+  digitalWrite(8, HIGH); //pull HIGH hour blank pin so it never blank
+
   pinMode(12, OUTPUT);
+  digitalWrite(12, HIGH); //pull HIGH hour invert pin so it never invert
   pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH); //pull HIGH minute invert pin so it never invert
   pinMode(4, OUTPUT);
+  digitalWrite(4, LOW ); //pull LOW HV Shutdown so HV is always enabled
 
   pinMode(clkPin, OUTPUT);
+  digitalWrite(clkPin, LOW);
   pinMode(dataHr, OUTPUT);
+  digitalWrite(dataHr, LOW);
   pinMode(dataMin, OUTPUT);
+  digitalWrite(dataMin, LOW);
   pinMode(latchMin, OUTPUT);
+  digitalWrite(latchMin, LOW);
   pinMode(latchHr, OUTPUT);
+  digitalWrite(latchHr, LOW);
 
-  digitalWrite(7, HIGH); //pull HIGH minute blank pin so it never blank
-  digitalWrite(8, HIGH); //pull HIGH hour blank pin so it never blank
-  digitalWrite(13, HIGH); //pull HIGH minute invert pin so it never invert
-  digitalWrite(12, HIGH); //pull HIGH hour invert pin so it never invert
+  shiftOutData(dataMin, clkPin, latchMin, minuteData); //Send 0 to clear registers
+  shiftOutData(dataHr, clkPin, latchHr, hourData); //Send 0 to clear registers
 
-  digitalWrite(4, LOW); //pull LOW HV Shutdown so HV is always enabled
+  delay(500); //wait 1/2 second for power to stabalize
+  randomSeed(analogRead(A0)); //Read from floating A0 pin to seed Random number gen
 
   Serial.begin(115200);
   ss.begin(9600);
+  Serial.println("Setup Complete");
 }
 
 void loop()
 {
-  //  Serial.println(F("\n\nValue Packet:"));
-  //  printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);
-  //  printFloat(gps.location.lng(), gps.location.isValid(), 12, 6);
+  while (ss.available()) {
+    gps.encode(ss.read());
+  }
+  static unsigned long lastGPSTask = 0;
+  const unsigned long gpsInterval = 500;
+  if (millis() - lastGPSTask >= gpsInterval) {
+    lastGPSTask = millis();
+    if (gps.time.age() >= 10 && gps.date.isValid() && gps.time.isValid() && gps.date.year() > 2000) {
 
-  //East coast is ~-75, so -75/15= -5 hours
-  //rough calculation using every 15deg longitude = one hr time zone diff
-  //Tzone = ((gps.location.lng()) / 15);
-  Tzone = -8;
+      setTimeGPS(gps.date, gps.time); //sets values when GPS recieved
 
-  TimeChangeRule myDST = {"EDT", Second, Sun, Mar, 2, ((Tzone + 1) * 60)}; // Daylight time = UTC - 4 hours
-  TimeChangeRule mySTD = {"EST", First, Sun, Nov, 2, (Tzone * 60)};   // Standard time = UTC - 5 hours
-  Timezone myTZ(myDST, mySTD);
+      if (gps.location.isValid()) {
+        //debug print GPS coords
+        //Serial.println(F("\n\nGPS Data Packet:"));
+        //printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);
+        //printFloat(gps.location.lng(), gps.location.isValid(), 12, 6);
 
-  setTimeGPS(gps.date, gps.time);
+        float longitude = gps.location.lng(); //Save for math to calculate time zone
+        //Eg. East coast is -75, so -75/15= -5 hours, West Coast is -120, so -120/15 = -8 hours
+        TzoneOffset = round(longitude / 15.0); //rough calculation using every 15deg longitude = one hr time zone diff
+      }
+      stdOffsetMinutes = TzoneOffset * 60; //calculate minutes offset based on position
+      dstOffsetMinutes = stdOffsetMinutes + 60; // add one 60 minutes for DaylightvSavings offset
 
-  time_t local = myTZ.toLocal(now(), &tcr);
+      TimeChangeRule myDST = {"Daylight", Second, Sun, Mar, 2, dstOffsetMinutes}; // Daylight time = UTC - offset + 60 min
+      TimeChangeRule mySTD = {"Standard", First, Sun, Nov, 2, stdOffsetMinutes};  // Standard time = UTC - offset
+      Timezone myTZ(myDST, mySTD); //use daylight savings when matching dates above
+      time_t localTime = myTZ.toLocal(now()); //set LocalTime to latest GPS data with Daylight savings & location applied
 
-  currentMin = getMinute(local);
-  currentHr = getHour(local);
+      currentMin = minute(localTime); //minutes are always minutes
+      currentHr = getHour(localTime); //convert to 12hr time (from 24 hr)
 
-  //Debugging 1 of 2
-    Serial.print("hour");
-    Serial.print(currentHr);
-    Serial.print("minute");
-    Serial.println(currentMin);
+      if (currentMin != prevMin) { //if the minute time has changed
+        prevMin = currentMin;
+        timeToBitMinute(currentMin); //convert time from integer to binary
+        timeToBitHour(currentHr);
+        shiftOutData(dataMin, clkPin, latchMin, minuteData); //send to tubes via shift register
+        shiftOutData(dataHr, clkPin, latchHr, hourData);
 
-  //time defulats to 4:00 when no GPS data recieved & clock setup has run
-  // enter if clock has shown same time for longer than 60 seconds (means loss of GPS)
-  if ((currentHr == 4) && (currentMin == 00) && (ClockSetup) || ActiveSeconds >= 61) {
-    for (int i = 0; i <= 99; i += 11) {
+        //Debugging:
+        //Serial.print("\nTimeDisplayed");
+        //Serial.print("\nhour ");
+        //Serial.println(currentHr);
+        //Serial.print("minute ");
+        //Serial.println(currentMin);
+        //Serial.print("sec ");
+        //Serial.println(second());
+        //End debugging
+      }
 
+    }
+    else {
+      //Serial.println(F("Waiting for GPS fix..."));
+      DisplayRandomPattern(10); //show 10 random numbers on display
+    }
+  }
+
+
+  //tube cleanging sequence, runs every 12 hours
+  if (currentHr == 12 && currentMin == 02 && TubeCleaning == true) {
+    for (int i = 0; i <= 99; i += 11) { // Increment up by 11
+      //Serial.print("Tube Cleaning: ");
+      //Serial.println(i);
       timeToBitMinute(i);
       timeToBitHour(i);
       shiftOutData(dataMin, clkPin, latchMin, minuteData);
       shiftOutData(dataHr, clkPin, latchHr, hourData);
-      delay(200);
+      delay(500);
     }
-    for (int i = 99; i >= 0; i -= 11) {
-
+    for (int i = 88; i >= 0; i -= 11) { // Decrement down by 11
+      //Serial.print("Tube Cleaning: ");
+      //Serial.println(i);
       timeToBitMinute(i);
       timeToBitHour(i);
       shiftOutData(dataMin, clkPin, latchMin, minuteData);
       shiftOutData(dataHr, clkPin, latchHr, hourData);
-      delay(200);
+      delay(500);
     }
-    ClockSetup = false; //disable clock setup flag for rest of program
+    TubeCleaning = false; // End the tube cleaning after loop completes
   }
 
-  if ((currentHr == 12) && (currentMin == 00) && (TimeCycle)) {
-    for (int i = 0; i <= 99; i += 11) {
-
-      timeToBitMinute(i);
-      timeToBitHour(i);
-      shiftOutData(dataMin, clkPin, latchMin, minuteData);
-      shiftOutData(dataHr, clkPin, latchHr, hourData);
-      delay(200);
-    }
-    for (int i = 99; i >= 0; i -= 11) {
-
-      timeToBitMinute(i);
-      timeToBitHour(i);
-      shiftOutData(dataMin, clkPin, latchMin, minuteData);
-      shiftOutData(dataHr, clkPin, latchHr, hourData);
-      delay(200);
-    }
-    TimeCycle = false; //disable clock setup flag for rest of program
+  if (currentHr == 12 && currentMin == 10) {
+    TubeCleaning = true; //setup for next crossover point
   }
-
-  if ((currentHr == 12) && (currentMin == 01)) {
-    TimeCycle = true; //reenable for next 12 hour crosspoint to cycle tubes
-  }
-
-  //if minute has changed (once every 60 seconds)
-  if (currentMin != prevMin) {
-    prevMin = currentMin;
-    ActiveSeconds = 0;
-    timeToBitMinute(currentMin);
-    timeToBitHour(currentHr);
-    shiftOutData(dataMin, clkPin, latchMin, minuteData);
-    shiftOutData(dataHr, clkPin, latchHr, hourData);
-  }
-
-  ActiveSeconds += 1; //count up seconds since last minute change (should be no more than 60)
-  // Debugging 2 of 2
-    Serial.print(ActiveSeconds);
-
-  smartDelay(1000);
-
-  if (millis() > 5000 && gps.charsProcessed() < 10)
-    Serial.println(F("No GPS data received: check wiring"));
 }//end main loop
 
 //===================Functions ===============================
-
-void shiftOutData(uint8_t dataPin, uint8_t clockPin, uint8_t latchPin, long val)
+//Send data to shift registers
+void shiftOutData(uint8_t dataPin, uint8_t clockPin, uint8_t latchPin, uint32_t val)
 {
-  uint32_t mask = 1L << 31;
+  uint32_t mask = 1UL << 31;
 
-  digitalWrite(latchPin, HIGH);
+  // Begin shifting data
+  digitalWrite(latchPin, LOW);  // Keep latch low while loading data
 
-  for (uint8_t i = 32; i > 0; i--)
-  {
-    digitalWrite(dataPin,  (val & mask) ? HIGH : LOW);    // writes to data pin in MSB order
-    //    Serial.print(!!(val & mask));
-    mask >>= 1;
-    digitalWrite(clockPin, HIGH);
+  for (uint8_t i = 0; i < 32; i++) {
+    // Write data bit (MSB first)
+    digitalWrite(dataPin, (val & mask) ? HIGH : LOW);
+    delayMicroseconds(1); //settle
+    digitalWrite(clockPin, HIGH);    // Clock pulse
+    delayMicroseconds(1); //settle
     digitalWrite(clockPin, LOW);
+    delayMicroseconds(1); //settle
+    mask >>= 1;
   }
+
+  // Latch the data to outputs
+  digitalWrite(latchPin, HIGH);
+  delayMicroseconds(1); //settle
   digitalWrite(latchPin, LOW);
+}
+//PrintFloat Used for GPS Lat/Long Debugging
+//static void printFloat(float val, bool valid, int len, int prec)
+//{
+//  if (!valid)
+//  {
+//    while (len-- > 1)
+//      Serial.print('*');
+//    Serial.print(' ');
+//  }
+//  else
+//  {
+//    Serial.print(val, prec);
+//    int vi = abs((int)val);
+//    int flen = prec + (val < 0.0 ? 2 : 1); // . and -
+//    flen += vi >= 1000 ? 4 : vi >= 100 ? 3 : vi >= 10 ? 2 : 1;
+//    for (int i = flen; i < len; ++i)
+//      Serial.print(' ');
+//  }
+//}//end printfloat function
 
-}//end shiftOutData function
 
-static void smartDelay(unsigned long ms)
-{
-  unsigned long start = millis();
-  do
-  {
-    while (ss.available())
-      gps.encode(ss.read());
-  } while (millis() - start < ms);
-}//end smart delay function
+static void DisplayRandomPattern(int numCycles) {
+  int randMin = 0;
+  int randHr = 0;
 
-static void printFloat(float val, bool valid, int len, int prec)
-{
-  if (!valid)
-  {
-    while (len-- > 1)
-      Serial.print('*');
-    Serial.print(' ');
+  for (int i = 0; i < numCycles; i += 1) {
+    randMin = random(0, 99);
+    randHr = random(0, 99);
+    timeToBitMinute(randMin); //show random number on minutes
+    timeToBitHour(randHr); //show random number on hour
+    shiftOutData(dataMin, clkPin, latchMin, minuteData);
+    shiftOutData(dataHr, clkPin, latchHr, hourData);
+    delay(100);
   }
-  else
-  {
-    Serial.print(val, prec);
-    int vi = abs((int)val);
-    int flen = prec + (val < 0.0 ? 2 : 1); // . and -
-    flen += vi >= 1000 ? 4 : vi >= 100 ? 3 : vi >= 10 ? 2 : 1;
-    for (int i = flen; i < len; ++i)
-      Serial.print(' ');
-  }
-  smartDelay(0);
-}//end printfloat function
+}//end random pattern display function
+
 
 static void setTimeGPS(TinyGPSDate & d, TinyGPSTime & t)
 {
@@ -221,27 +242,17 @@ static void setTimeGPS(TinyGPSDate & d, TinyGPSTime & t)
   setTime(t.hour(), t.minute(), t.second(), d.day(), d.month(), d.year());
 }//end setimegps function
 
-// format and print a time_t value, with a time zone appended.
-int getHour(time_t t)
+int getHour(time_t localTime)
 {
-  if (hour(t) > 12) {
-    return (hour(t) - 12);
+  int hourIn = hour(localTime);
+  if (hourIn > 12) {
+    return (hourIn - 12);
   }
-  else if (hour(t) == 0) {
+  else if (hourIn == 0) {
     return (12);
   }
   else {
-    return (hour(t));
-  }
-}
-
-int getMinute(time_t t)
-{
-  if (minute(t) < 10 ) {
-    return ("%02d", minute(t));
-  }
-  else {
-    return (minute(t));
+    return (hourIn);
   }
 }
 
@@ -286,9 +297,8 @@ void timeToBitMinute(uint8_t minutes)
       bitSet(minuteData, 11);
       break;
     default:
-      bitSet(minuteData, 21);
-      bitSet(minuteData, 20);
-      //  minuteData = 0b00000000000000000000000000000000;
+      bitSet(minuteData, 11); //9
+      // minuteData = 0b00000000000000000000000000000000;
       break;
   }
   switch (Tens) {
@@ -323,9 +333,8 @@ void timeToBitMinute(uint8_t minutes)
       bitSet(minuteData, 23);
       break;
     default:
-      bitSet(minuteData, 21); //dot symbol
-      bitSet(minuteData, 20); //dot symbol
-      //  minuteData = 0b00000000000000000000000000000000;
+      bitSet(minuteData, 24); //8
+      //minuteData = 0b00000000000000000000000000000000;
       break;
   }
 
@@ -335,12 +344,6 @@ void timeToBitHour(uint8_t hours)
 {
   uint8_t Tens = (hours / 10) % 10;
   uint8_t Ones = (hours % 10);
-
-  //  Use this to get rid of leading zero on Hours (but there will be flicking issues)
-  //  if (Tens <= 0)
-  //    Tens = 10;
-  //  else
-  //    Tens = Tens;
 
   //Bit values are 0-31 in program, address pins on HV5622 1-32
 
@@ -377,7 +380,8 @@ void timeToBitHour(uint8_t hours)
       bitSet(hourData, 1);
       break;
     default:
-      hourData = 0b00000000000000000000000000000000;
+      bitSet(hourData, 2); // 8
+      //hourData = 0b00000000000000000000000000000000;
       break;
   }
   switch (Tens) {
@@ -412,7 +416,7 @@ void timeToBitHour(uint8_t hours)
       bitSet(hourData, 11);
       break;
     default:
-      //bitSet(hourData, 10);
+      bitSet(hourData, 11); //9
       //  hourData = 0b00000000000000000000000000000000;
       break;
   }

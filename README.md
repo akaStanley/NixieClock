@@ -2,7 +2,7 @@
 From scratch design of a Nixie Tube Clock, with a twist. This clock sets its time using a GPS reciever, so it has the correct time anywhere around the world--and you don't have set it.
 
 Read the "Notes on Nixie Tube Clock.rtf" for more details on the actual design. Here are some images of the design.
-All the Code, PCB, and 3D model files are included here if you want to make your own. BOM cost will run you at least 250$ though, so maybe think twice...
+All the Code, PCB, and 3D model files are included here if you want to make your own. BOM cost will run you around 300$ (as of May 2025)
 
 ### The Finnished Clock
 ![Clock Final](/Images/Clock_final.jpg)
@@ -37,8 +37,9 @@ I bought an Ender 3 V2 and modeled a base and some trim parts for this clock.
 ![Elegant](/Images/legs2.jpg)
 
 ## Tubes!
-Turns out you can get unlucky and your vintage tubes will just _die_ one day...They aren't getting any cheaper to replace.  
-In 2020, the larger IN-18 tubes were 50$ each, and the smaller IN-8-2 were a measly 18$. Shipped from a random wearhouse in Belarus.  
+Like any old electronics one day they will _stop working_ ... and they aren't getting any cheaper to repair.  
+In 2020, the larger IN-18 tubes were 50$ each, and the smaller IN-8-2 were a measly 18$. Shipped from a wearhouse in Belarus.  
+Flash forward to 2025, and the large tubes are 85$ and the small IN-8-2 are now retailing for 25$ each.  
 ![IN-8-2 on the left, IN-18 on the right](/Images/Tubes.jpg)  
 
 ![Tube testing, hoping to bring one back from the dead](/Images/TubeTesting.JPG)  
